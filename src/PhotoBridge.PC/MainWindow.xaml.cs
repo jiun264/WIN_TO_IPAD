@@ -1,6 +1,7 @@
 ﻿using Microsoft.Win32;
 using PhotoBridge.PC.Models;
 using PhotoBridge.PC.Services;
+using PhotoBridge.PC.Services.Transfer;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
@@ -10,6 +11,7 @@ namespace PhotoBridge.PC;
 public partial class MainWindow : Window
 {
     private readonly PhotoFolderScanner _scanner = new();
+    private readonly ITransferServer _transferServer = new NativeTransferServer();
     private readonly ObservableCollection<PhotoItem> _photos = [];
 
     public MainWindow()
@@ -59,9 +61,26 @@ public partial class MainWindow : Window
 
     private void SendButton_Click(object sender, RoutedEventArgs e)
     {
-        MessageBox.Show(this,
-            "照片挑選介面已就緒；區域網路配對與可恢復傳輸服務尚待實作。",
-            "PhotoBridge 開發中", MessageBoxButton.OK, MessageBoxImage.Information);
+        var selectedPhotos = _photos.Where(photo => photo.IsSelected).ToArray();
+        try
+        {
+            var result = _transferServer.Start(selectedPhotos, 8765);
+            MessageBox.Show(this, result.Message,
+                result.IsSuccess ? "PhotoBridge" : "傳輸服務尚未就緒",
+                MessageBoxButton.OK,
+                result.IsSuccess ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        }
+        catch (DllNotFoundException ex)
+        {
+            MessageBox.Show(this,
+                $"找不到 C++ 傳輸核心。請先依 README 建置原生專案。\n{ex.Message}",
+                "缺少原生元件", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        catch (EntryPointNotFoundException ex)
+        {
+            MessageBox.Show(this, $"C++ 傳輸核心版本不相容：{ex.Message}",
+                "原生元件錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void UpdateSelectionSummary()

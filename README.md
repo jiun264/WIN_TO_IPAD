@@ -4,17 +4,18 @@ PC 選片後，透過同一個區域網路將 Nikon NEF 等原始照片傳到 iP
 
 ## 專案結構
 
-- `src/PhotoBridge.PC`：Windows WPF 桌面端；目前可選擇資料夾並列出 NEF、JPEG、TIFF、PNG、DNG 檔案。
+- `src/PhotoBridge.PC`：Windows WPF 桌面端；負責挑片 UI、檔案清單與傳輸服務協調。
+- `src/PhotoBridge.Transport.Native`：C++20 原生 DLL 傳輸核心；由 C# 透過穩定的 C ABI 呼叫。
 - `ios/PhotoBridge.swiftpm`：Swift Playgrounds 可開啟的 iPad SwiftUI App 起始專案。
 
 ## 目前狀態
 
-這是第一個可建置的 UI／專案骨架，**區域網路配對、NEF 預覽、傳輸與續傳尚未實作**。PC 傳送按鈕目前會明確提示此狀態，不會假裝傳輸成功。
+PC 端目前已建立 WPF UI → C# `ITransferServer` → C++ C ABI DLL 的分層。C++ DLL 與 C# 互通介面已有明確契約，但原生傳輸核心目前回報「尚未實作」；**區域網路配對、NEF 預覽、傳輸與續傳尚未實作**。PC 傳送按鈕會明確顯示目前狀態，不會假裝傳輸成功。
 
 接下來預計依序完成：
 
 1. PC 照片格、NEF 內嵌 JPEG 預覽及快速挑片。
-2. PC 區域網路配對服務：顯示連線資訊與一次性配對碼，只提供已選照片。
+2. 以 C++ 實作 PC 區域網路配對服務：顯示連線資訊與一次性配對碼，只提供已選照片。
 3. iPad 端接收清單與背景下載佇列，保存到「檔案」可存取的位置。
 4. 逐檔記錄、重試及完整性驗證；Wi-Fi 中斷後恢復未完成項目。
 5. 實機測試大量傳輸、iPad 鎖定、PC 睡眠及 Wi-Fi 變動等情境。
@@ -25,12 +26,16 @@ PC 選片後，透過同一個區域網路將 Nikon NEF 等原始照片傳到 iP
 
 ### Windows PC
 
-需要 Windows 與 .NET 8 SDK：
+需要 Windows、.NET 8 SDK、CMake 3.20+ 與可用的 C++20 編譯器：
 
 ```powershell
+cmake -S . -B build
+cmake --build build --config Release
 dotnet build .\PhotoBridge.slnx
 dotnet run --project .\src\PhotoBridge.PC
 ```
+
+將 CMake 產生的 `PhotoBridge.Transport.Native.dll` 放在 WPF 應用程式輸出目錄旁，讓 P/Invoke 載入。
 
 ### iPad
 
