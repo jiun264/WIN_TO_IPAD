@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PhotoBridge.PC/PhotoBridge.PC.csproj" />
+  </Folder>
+</Solution>
