@@ -2,3 +2,9 @@
 **/obj/
 .build/
 .DS_Store
+build/
+dist/win-x64/
+dist/*.zip
+dist/*.exe
+dist/*.pdb
+dist/PhotoBridge-Windows-Setup/PhotoBridge.exe

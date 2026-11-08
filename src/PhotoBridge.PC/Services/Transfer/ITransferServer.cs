@@ -2,11 +2,24 @@ using PhotoBridge.PC.Models;
 
 namespace PhotoBridge.PC.Services.Transfer;
 
-public interface ITransferServer
+public interface ITransferServer : IAsyncDisposable
 {
-    TransferServerResult Start(IReadOnlyCollection<PhotoItem> photos, ushort port);
+    bool IsRunning { get; }
+    string? PairingCode { get; }
+    ushort Port { get; }
+    IReadOnlyList<string> LocalAddresses { get; }
 
-    void Stop();
+    event Action<string>? FileTransferred;
+    event Action<string>? LogMessage;
+
+    Task<TransferServerResult> StartAsync(IReadOnlyCollection<PhotoItem> photos, ushort port = 8765);
+    Task StopAsync();
 }
 
-public sealed record TransferServerResult(bool IsSuccess, string Message);
+public sealed record TransferServerResult(
+    bool IsSuccess,
+    string Message,
+    string? PairingCode = null,
+    ushort Port = 0,
+    IReadOnlyList<string>? LocalAddresses = null
+);

@@ -9,14 +9,18 @@ let package = Package(
         .iOSApplication(
             name: "PhotoBridge",
             targets: ["PhotoBridge"],
-            bundleIdentifier: "com.photobridge.app",
+            bundleIdentifier: "com.jiun264.PhotoBridge",
             teamIdentifier: "",
-            displayVersion: "0.1.0",
+            displayVersion: "1.0.0",
             bundleVersion: "1",
-            appIcon: .placeholder(icon: .globe),
+            appIcon: .placeholder(icon: .camera),
             accentColor: .presetColor(.blue),
-            supportedDeviceFamilies: [.pad],
-            supportedInterfaceOrientations: [.portrait, .landscapeLeft, .landscapeRight]
+            supportedDeviceFamilies: [.pad, .phone],
+            supportedInterfaceOrientations: [.portrait, .landscapeLeft, .landscapeRight],
+            capabilities: [
+                .localNetwork(purposeString: "需要本機區域網路連線以高速直傳照片至 iPad"),
+                .outgoingNetworkConnections()
+            ]
         )
     ],
     targets: [

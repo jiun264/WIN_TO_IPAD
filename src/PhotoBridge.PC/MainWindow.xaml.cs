@@ -1,23 +1,28 @@
-﻿using Microsoft.Win32;
-using PhotoBridge.PC.Models;
-using PhotoBridge.PC.Services;
-using PhotoBridge.PC.Services.Transfer;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
+using Microsoft.Win32;
+using PhotoBridge.PC.Models;
+using PhotoBridge.PC.Services;
+using PhotoBridge.PC.Services.Transfer;
 
 namespace PhotoBridge.PC;
 
 public partial class MainWindow : Window
 {
     private readonly PhotoFolderScanner _scanner = new();
-    private readonly ITransferServer _transferServer = new NativeTransferServer();
+    private readonly ITransferServer _transferServer = new KestrelTransferServer();
     private readonly ObservableCollection<PhotoItem> _photos = [];
+    private string _activeAddress = "";
 
     public MainWindow()
     {
         InitializeComponent();
         PhotoGrid.ItemsSource = _photos;
+
+        _transferServer.FileTransferred += OnFileTransferred;
+        _transferServer.LogMessage += OnLogMessage;
+        Closing += async (_, _) => await _transferServer.StopAsync();
     }
 
     private void ChooseFolderButton_Click(object sender, RoutedEventArgs e)
@@ -59,28 +64,89 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SendButton_Click(object sender, RoutedEventArgs e)
+    private async void SendButton_Click(object sender, RoutedEventArgs e)
     {
         var selectedPhotos = _photos.Where(photo => photo.IsSelected).ToArray();
-        try
+        if (selectedPhotos.Length == 0)
         {
-            var result = _transferServer.Start(selectedPhotos, 8765);
-            MessageBox.Show(this, result.Message,
-                result.IsSuccess ? "PhotoBridge" : "傳輸服務尚未就緒",
-                MessageBoxButton.OK,
-                result.IsSuccess ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            MessageBox.Show(this, "請先勾選至少一張欲傳輸的照片。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
         }
-        catch (DllNotFoundException ex)
+
+        SendButton.IsEnabled = false;
+        SendButton.Content = "啟動中...";
+
+        var result = await _transferServer.StartAsync(selectedPhotos, 8765);
+        if (result.IsSuccess)
         {
-            MessageBox.Show(this,
-                $"找不到 C++ 傳輸核心。請先依 README 建置原生專案。\n{ex.Message}",
-                "缺少原生元件", MessageBoxButton.OK, MessageBoxImage.Error);
+            ServerStatusPanel.Visibility = Visibility.Visible;
+            _activeAddress = result.LocalAddresses?.Count > 0
+                ? $"http://{result.LocalAddresses[0]}:{result.Port}"
+                : $"http://127.0.0.1:{result.Port}";
+
+            ServerAddressText.Text = _activeAddress;
+            PairingCodeText.Text = result.PairingCode ?? "------";
+            ServerLogText.Text = $"已就緒！等待 iPad 連線，共 {selectedPhotos.Length} 張照片。";
+
+            SendButton.Content = "服務運行中";
         }
-        catch (EntryPointNotFoundException ex)
+        else
         {
-            MessageBox.Show(this, $"C++ 傳輸核心版本不相容：{ex.Message}",
-                "原生元件錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, result.Message, "啟動失敗", MessageBoxButton.OK, MessageBoxImage.Error);
+            SendButton.IsEnabled = true;
+            SendButton.Content = "啟動直傳服務";
         }
+    }
+
+    private async void StopServerButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _transferServer.StopAsync();
+        ServerStatusPanel.Visibility = Visibility.Collapsed;
+        SendButton.IsEnabled = _photos.Count > 0;
+        SendButton.Content = "啟動直傳服務";
+    }
+
+    private void CopyAddressButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(_activeAddress))
+        {
+            Clipboard.SetText(_activeAddress);
+            MessageBox.Show(this, $"已複製位址至剪貼簿：{_activeAddress}", "已複製", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+    }
+
+    private void SelectAllButton_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var photo in _photos)
+        {
+            photo.IsSelected = true;
+        }
+        UpdateSelectionSummary();
+    }
+
+    private void DeselectAllButton_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var photo in _photos)
+        {
+            photo.IsSelected = false;
+        }
+        UpdateSelectionSummary();
+    }
+
+    private void OnFileTransferred(string fileName)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            ServerLogText.Text = $"[{DateTime.Now:HH:mm:ss}] 成功直傳至 iPad: {fileName}";
+        });
+    }
+
+    private void OnLogMessage(string msg)
+    {
+        Dispatcher.Invoke(() =>
+        {
+            ServerLogText.Text = msg;
+        });
     }
 
     private void UpdateSelectionSummary()
