@@ -66,11 +66,14 @@ public final class TransferClient: ObservableObject {
 
     /// 取得檔案存放的目錄 (Documents/PhotoBridge)
     public static var destinationDirectory: URL {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let docs = FileManager.default.urls(for: .documentDirectory,  in: .userDomainMask)[0]
         let dir = docs.appendingPathComponent("PhotoBridge", isDirectory: true)
-        if !FileManager.default.fileExists(atPath: dir.path) {
-            try? FileManager.default.createDirectory(at, withIntermediateDirectories: true)
+        
+        var isDir: ObjCBool = true
+        if !FileManager.default.fileExists(atPath: dir.path, isDirectory: &isDir) {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true, attributes: nil)
         }
+        
         return dir
     }
 
